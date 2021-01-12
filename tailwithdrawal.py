@@ -7,7 +7,7 @@ import serial
 import sys
 import datetime
 import operator
-from config import COMMAND_RFIDs, USER_RFIDs
+from config import COMMAND_RFIDs, USER_RFIDs, SPEED_RFIDs
 
 
 ## disable saving data if keys are detected as RFID
@@ -67,6 +67,8 @@ Tail=12
 setupGPIO()
 
 spin_speed = input("Please enter a mixing speed (1-7): ")[-4:]
+if spin_speed in SPEED_RFIDs.keys():
+    spin_speed = SPEED_RFIDs[spin_speed]
 user=input("TailTimer started.\nPlease enter your name:\n")[-4:]
 if user in USER_RFIDs.keys():
     user = USER_RFIDs[user]
