@@ -7,7 +7,8 @@ import serial
 import sys
 import datetime
 import operator
-import subprocess
+from config import COMMAND_RFIDs, USER_RFIDs
+
 
 ## disable saving data if keys are detected as RFID
 ## check within rat variability before continue to next rat
@@ -25,7 +26,14 @@ device=idfile.read()
 device=device.strip()
 today=datetime.date.today()
 td=str(today)
-datafile="/home/pi/Pies/tailwithdrawal/tailwithdrawal"+td+".csv"
+
+file_dir = "/home/pi/Pies/tailwithdrawl/"
+# create the directory if not already exist
+if not os.path.isdir(file_dir):
+   os.makedirs(file_dir) 
+
+datafile = file_dir + "tailimmersion_" + td + ".csv"
+
 
 # flags
 startflag = "\x02"
@@ -58,20 +66,20 @@ def read_temp():
 Tail=12
 setupGPIO()
 
-user=input("Please enter your last name:\n")
-if user =="00fb4fb3":
-    user="Chen"
-if user=="00fbb0b2":
-    user="Udell"
+spin_speed = input("Please enter a mixing speed (1-7): ")[-4:]
+user=input("TailTimer started.\nPlease enter your name:\n")[-4:]
+if user in USER_RFIDs.keys():
+    user = USER_RFIDs[user]
 
-targettemp=input("Enter the target temp in C,  or scan any key for 48C.\n")
+print ("\nWelcome, " + user + "\n")
+targettemp=input("Please enter the target temp in C,  or scan any key for 48C.\n")
 if not targettemp.isdigit():
     targettemp=48
-templo=int(targettemp)-0.50
-temphi=int(targettemp)+0.50
+templo=int(targettemp)-0.25
+temphi=int(targettemp)+0.25
 
 print ("\n\nProgram started, user is " + user + " target temp range: (" + str(templo) + " - " + str(temphi) + ")\n" )
-#print ("Data are saved in " + datafile+"\n")
+print ("Data are saved in " + datafile+"\n")
 
 print ("Please test the wire.")
 ratid="00fbtest"
@@ -94,57 +102,54 @@ while True:
         print ("Timer started\n")
         while (tail_out==False):
             tail_out= GPIO.input(Tail)
-        elapsed=time.time()-sTime + 0.4 # calibrated at 2s and 10s  found this consistent system error        
+            time.sleep(0.02)
+            elapsed=time.time()-sTime + 0.4 # calibrated at 2s and 10s  found this consistent system error        
+            if  (elapsed>10):
+                print ("Maximum latency of 10 s reached\n");
+                tail_out=True
         elapsed=round(elapsed, 3)
         temp2=read_temp()
         temp=round((temp1+temp2)/2, 3)
         now0=datetime.datetime.now()
         now=now0.strftime("%Y-%m-%d\t%H:%M")
-        line=ratid+"\t" + now + "\t"+ str(elapsed) + "\t"+ str(temp) + "\t" + str(user) + "\n"
-        if (ratid in latency.keys()): 
+        line=ratid+"\t" + now + "\t"+ str(elapsed) + "\t"+ str(temp) + "\t" + str(user) + "\t" + spin_speed + "\n"
+        if (ratid in latency.keys()):
             latency[ratid] += str(elapsed) + ", "
-        else: 
+        else:
             latency[ratid] = str(elapsed) + ", "
         print ("Rat is "+ ratid+", latency = "+ latency[ratid])
-        next=input("Type \"n\" for new rat,\n\"d\" to delete this trial,\n\"a\" to test the current rat again\n\"e\" to end the run\n")
+        next_id=input("Choose one of the following:\n \"n\" for new rat,\n\"d\" to delete this trial,\n\"a\" to test the current rat again\n\"e\" to end the run\n")[-4:]
         ## RFID equivalants
-        if next=="00fbf27e":
-            next="n"
-        if next=="00fb2588":
-            next="d"
-        if next=="00fb8874":
-            next="e"
-        if next=="00fb3131":
-            next="a"
-        ## 
-        if (next=="e"):
-            print ("Exit prgram\n")
-            sys.exit()
-        if (next =="d"):
+        if next_id in COMMAND_RFIDs.keys():
+            next_id = COMMAND_RFIDs[next_id]
+
+        if (next_id =="d"):
             print ("Data deleted as requested\n")
-            next="a" # then test the same rat again
+            next_id="a" # then test the same rat again
             savedata=0
         if elapsed<1.5:
             print ("!!! latency < 1.5 sec, Data not saved");
             savedata=0
-            next="a"
+            next_id="a"
         if temp> temphi or temp<templo:
             print ("!!! temperature not in target range, Data not saved")
-            next="a"
+            next_id="a"
             savedata=0
-        if ratid[0:4]=="00fb":
+        if ratid[0:4]=="00fb" or ratid[0:4]=="3200":
             print ("!!! RFID is not a valid rat ID, Data not saved");
-            next="n"
+            next_id="n"
             savedata=0
-        if savedata: 
+        if savedata:
             with open(datafile, "a") as f:
                 f.write(line)
-                f.close()
-            print ("Data saved\n")
-            savedata=1
+            print ("Data saved to " + datafile)  
+        if (next_id=="e"):
+            print ("Exit prgram\n")
+            sys.exit()
+        savedata=1
         print ("Please wait 10 seconds\n")
         time.sleep(10)
-        if (next=="n"):
+        if (next_id=="n"):
             ratid=input("Please enter new rat ID\n")
         else:
             print ("Please test the same rat again\n")
