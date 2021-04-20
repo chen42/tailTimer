@@ -86,6 +86,12 @@ print ("Data are saved in " + datafile+"\n")
 print ("Please test the wire.")
 ratid="00fbtest"
 
+
+def save_data(fname, line):
+    with open(fname, "a") as f:
+        f.write(line)
+    print("data saved to " + fname)
+
 while True:
     time.sleep(0.01)
     tail_out= GPIO.input(Tail)
@@ -119,8 +125,20 @@ while True:
             latency[ratid] += str(elapsed) + ", "
         else:
             latency[ratid] = str(elapsed) + ", "
+
+            
         print ("Rat is "+ ratid+", latency = "+ latency[ratid])
-        next_id=input("Choose one of the following:\n \"n\" for new rat,\n\"d\" to delete this trial,\n\"a\" to test the current rat again\n\"e\" to end the run\n")[-4:]
+        
+        ind_latency = latency[ratid].split(", ")
+        if (len(ind_latency) == 2) and (abs(float(ind_latency[0]) - float(ind_latency[1])) > 1):
+            print("the latency difference between the first and second test is greater than 1 seconds. please test the same rat again.")
+            force_test = True
+        
+        if force_test:
+            next_id = ""
+        else:
+            next_id=input("Choose one of the following:\n \"n\" for new rat,\n\"d\" to delete this trial,\n\"a\" to test the current rat again\n\"e\" to end the run\n")[-4:]
+
         ## RFID equivalants
         if next_id in COMMAND_RFIDs.keys():
             next_id = COMMAND_RFIDs[next_id]
@@ -142,9 +160,7 @@ while True:
             next_id="n"
             savedata=0
         if savedata:
-            with open(datafile, "a") as f:
-                f.write(line)
-            print ("Data saved to " + datafile)  
+            save_data(datafile, line)
         if (next_id=="e"):
             print ("Exit prgram\n")
             sys.exit()
